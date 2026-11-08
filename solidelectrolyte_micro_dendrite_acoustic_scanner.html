@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolidElectrolyte: Ceramic Micro-Dendrite Acoustic Scanner</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- MathJax Configuration & Engine -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #03050a;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+    
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .formula-box {
+      background: #020617;
+      border: 1px solid #1e293b;
+      padding: 0.85rem 1rem;
+      border-radius: 0.6rem;
+      text-align: center;
+      color: #38bdf8;
+      overflow-x: auto;
+      margin: 0.6rem 0;
+    }
+
+    /* Custom range slider styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: #1e293b;
+      border-radius: 9999px;
+      height: 6px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: #06b6d4;
+      cursor: pointer;
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+    }
+
+    /* Subtle glow helpers */
+    .glow-cyan {
+      box-shadow: 0 0 20px -3px rgba(6, 182, 212, 0.35);
+    }
+    .glow-rose {
+      box-shadow: 0 0 25px -2px rgba(244, 63, 94, 0.45);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#03050a] text-slate-100 antialiased selection:bg-cyan-500 selection:text-black">
+
+  <!-- Top App Navigation & Master Telemetry Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand & Mission Badge -->
+      <div class="flex items-center space-x-3">
+        <div class="p-2 rounded-xl bg-gradient-to-tr from-cyan-950 via-slate-900 to-indigo-950 border border-cyan-500/30 text-cyan-400">
+          <i data-lucide="activity" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/60 tracking-wider">NASA ARTEMIS SBIR</span>
+            <span class="text-xs font-mono text-slate-400">LLZO-SSB CLUSTER v2.4</span>
+          </div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            SolidElectrolyte <span class="text-slate-500 font-normal">|</span> <span class="text-cyan-400 text-sm font-semibold tracking-wide">Ceramic Micro-Dendrite Acoustic Scanner</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- Tab Buttons -->
+      <nav class="flex items-center bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 text-sm">
+        <button id="tabBtnSim" onclick="switchTab('sim')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition text-white bg-cyan-600 shadow-sm shadow-cyan-500/20">
+          <i data-lucide="gauge" class="w-4 h-4"></i>
+          <span>Live Telemetry</span>
+        </button>
+        <button id="tabBtnPhysics" onclick="switchTab('physics')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">
+          <i data-lucide="atom" class="w-4 h-4"></i>
+          <span>Physics & Model</span>
+        </button>
+        <button id="tabBtnProposal" onclick="switchTab('proposal')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">
+          <i data-lucide="file-check-2" class="w-4 h-4"></i>
+          <span>NASA Proposal</span>
+        </button>
+        <button id="tabBtnARR" onclick="switchTab('arr')" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-white">
+          <i data-lucide="trending-up" class="w-4 h-4"></i>
+          <span>ARR Breakdown</span>
+        </button>
+      </nav>
+
+      <!-- Global Safety Sentinel Status Indicator -->
+      <div class="hidden lg:flex items-center gap-3 bg-slate-900/70 border border-slate-800 px-3 py-1.5 rounded-xl">
+        <div class="text-right">
+          <div class="text-[10px] text-slate-400 uppercase tracking-widest font-mono">Separator Sentinel</div>
+          <div id="topStatusText" class="text-xs font-semibold text-emerald-400 flex items-center justify-end gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            HOMOGENEOUS INTERCALATION
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: LIVE SIMULATION & TELEMETRY HUD                                    -->
+    <!-- ========================================================================= -->
+    <section id="viewSim" class="space-y-6">
+      
+      <!-- Top Metric Badges -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl backdrop-blur">
+          <div class="text-slate-400 text-xs font-mono uppercase tracking-wider">Acoustic Emission Rate ($a$)</div>
+          <div class="flex items-baseline justify-between mt-1">
+            <span id="metricA" class="text-2xl font-bold font-mono text-cyan-400">0.12</span>
+            <span class="text-xs text-slate-500 font-mono">m/s² (RMS)</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="barMetricA" class="bg-cyan-400 h-full w-[12%] transition-all duration-150"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl backdrop-blur">
+          <div class="text-slate-400 text-xs font-mono uppercase tracking-wider">Bulk Separator Res. ($R$)</div>
+          <div class="flex items-baseline justify-between mt-1">
+            <span id="metricR" class="text-2xl font-bold font-mono text-emerald-400">148.2</span>
+            <span class="text-xs text-slate-500 font-mono">$\Omega\cdot\text{cm}^2$</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="barMetricR" class="bg-emerald-400 h-full w-[88%] transition-all duration-150"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl backdrop-blur">
+          <div class="text-slate-400 text-xs font-mono uppercase tracking-wider">Lithium Infiltration Depth</div>
+          <div class="flex items-baseline justify-between mt-1">
+            <span id="metricDepth" class="text-2xl font-bold font-mono text-amber-400">4.1</span>
+            <span class="text-xs text-slate-500 font-mono">$\mu\text{m}~/~45\mu\text{m}$</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="barMetricDepth" class="bg-amber-400 h-full w-[9%] transition-all duration-150"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800/80 p-4 rounded-xl backdrop-blur">
+          <div class="text-slate-400 text-xs font-mono uppercase tracking-wider">Thermal Runaway Margin</div>
+          <div class="flex items-baseline justify-between mt-1">
+            <span id="metricMargin" class="text-2xl font-bold font-mono text-emerald-400">98.4%</span>
+            <span class="text-xs text-slate-500 font-mono">Safe</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="barMetricMargin" class="bg-emerald-400 h-full w-[98%] transition-all duration-150"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Interactive Row: Canvas + Phase-Space Chart -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left 7 Cols: Microstructure Cross-Section Simulation -->
+        <div class="lg:col-span-7 bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="microscope" class="w-5 h-5 text-cyan-400"></i>
+              <h2 class="text-sm font-semibold tracking-wide text-white uppercase">
+                LLZO Ceramic Electrolyte Sub-Surface In-Situ Acoustic Field
+              </h2>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="breakerBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">ISOLATOR: CLOSED (CHARGING)</span>
+            </div>
+          </div>
+
+          <!-- Microstructure Dynamic Canvas -->
+          <div class="relative w-full bg-[#02050b] rounded-xl border border-slate-800/80 overflow-hidden shadow-inner">
+            <canvas id="simCanvas" class="w-full h-[320px] block cursor-crosshair"></canvas>
+            
+            <!-- In-Canvas Overlay Telemetry HUD -->
+            <div class="absolute top-2 left-3 pointer-events-none text-[10px] font-mono text-cyan-300/80 bg-slate-950/70 p-2 rounded border border-cyan-900/40 space-y-0.5">
+              <div>TRANSDUCER: 4x PZ27 PZT 5.0 MHz RING</div>
+              <div>SAMPLE: $\text{Li}_{6.4}\text{La}_3\text{Zr}_{1.4}\text{Ta}_{0.6}\text{O}_{12}$ GARNET</div>
+              <div>CRACK PROPAGATION ACOUSTIC CORRELATOR: <span id="overlayCorrelation" class="text-emerald-400 font-bold">NORMAL</span></div>
+            </div>
+
+            <!-- Warning Flash Banner for Micro-Puncture -->
+            <div id="punctureAlert" class="hidden absolute inset-0 bg-rose-950/60 border-2 border-rose-500 backdrop-blur-xs flex flex-col items-center justify-center text-center p-4">
+              <i data-lucide="alert-triangle" class="w-12 h-12 text-rose-400 animate-bounce mb-2"></i>
+              <div class="text-lg font-bold text-rose-200 uppercase tracking-widest font-mono">DENDRITIC PERCOLATION INITIATED</div>
+              <div class="text-xs text-rose-300 max-w-md mt-1">
+                Ultrasonic shear wave threshold ($a > 1.85\,\text{m/s}^2$) accompanied by dynamic impedance crash ($\Delta R > 45\,\Omega$). Charging circuit tripped autonomously in 4.2 ms.
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs text-slate-400 mt-3 font-mono">
+            <span>Anode Interface ($z=0\,\mu\text{m}$)</span>
+            <span class="text-cyan-400">Ultrasonic Acoustic Emission Sensor Array Array (AE)</span>
+            <span>Cathode Collector ($z=45\,\mu\text{m}$)</span>
+          </div>
+        </div>
+
+        <!-- Right 5 Cols: Primary Phase Space (Acceleration a vs Bulk Resistance R) -->
+        <div class="lg:col-span-5 bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="compass" class="w-5 h-5 text-indigo-400"></i>
+              <h2 class="text-sm font-semibold tracking-wide text-white uppercase">Phase-Space State Observer ($a \text{ vs. } R$)</h2>
+            </div>
+            <span class="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">REAL-TIME TRAJECTORY</span>
+          </div>
+          
+          <p class="text-xs text-slate-400 mb-2">
+            Mapping micro-acoustic crack acceleration pulses ($a$) directly against bulk separator resistance ($R$). Red sector indicates catastrophic dendritic breach.
+          </p>
+
+          <div class="relative w-full h-[280px]">
+            <canvas id="phaseChart"></canvas>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-mono mt-3">
+            <div class="p-2 rounded bg-slate-950/60 border border-slate-800">
+              <span class="text-slate-400">Hazard Boundary ($a_{\text{crit}}$):</span>
+              <span class="text-rose-400 font-bold ml-1">1.80 m/s²</span>
+            </div>
+            <div class="p-2 rounded bg-slate-950/60 border border-slate-800">
+              <span class="text-slate-400">Short Res. Floor ($R_{\text{floor}}$):</span>
+              <span class="text-amber-400 font-bold ml-1">45.0 Ω·cm²</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Secondary Telemetry Plots + Closed Loop Controls -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Closed-Loop Control Board (4 Cols) -->
+        <div class="lg:col-span-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wide">
+              <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+              Lunar Battery Stress Injector
+            </h3>
+            <span class="text-[10px] font-mono text-slate-400">CLOSED-LOOP HW</span>
+          </div>
+
+          <!-- Slider 1: Charging Current Density -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-mono">
+              <span class="text-slate-300">Fast Charge Current ($J_{\text{charge}}$)</span>
+              <span id="labelCurrent" class="text-cyan-400 font-bold">2.5 mA/cm²</span>
+            </div>
+            <input id="sliderCurrent" type="range" min="0.5" max="12.0" step="0.1" value="2.5" class="w-full" oninput="updateControls()">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0.5 (Nominal)</span>
+              <span>6.0 (Critical Limit)</span>
+              <span>12.0 (Overdrive)</span>
+            </div>
+          </div>
+
+          <!-- Slider 2: Lunar Cryo Temperature -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-mono">
+              <span class="text-slate-300">Lunar Cell Temperature ($T$)</span>
+              <span id="labelTemp" class="text-violet-400 font-bold">253 K (-20°C)</span>
+            </div>
+            <input id="sliderTemp" type="range" min="120" max="340" step="1" value="253" class="w-full" oninput="updateControls()">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>120 K (Lunar Night)</span>
+              <span>253 K (Controlled)</span>
+              <span>340 K (Lunar Noon)</span>
+            </div>
+          </div>
+
+          <!-- Slider 3: Mechanical Stack Pre-Pressure -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-xs font-mono">
+              <span class="text-slate-300">Stack Uniaxial Pressure ($\sigma_p$)</span>
+              <span id="labelPressure" class="text-amber-400 font-bold">5.0 MPa</span>
+            </div>
+            <input id="sliderPressure" type="range" min="0.5" max="15.0" step="0.5" value="5.0" class="w-full" oninput="updateControls()">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0.5 MPa (Delamination)</span>
+              <span>5.0 (Optimal)</span>
+              <span>15.0 (Grain Shear)</span>
+            </div>
+          </div>
+
+          <!-- Fault Injection & Intervention Controls -->
+          <div class="pt-2 border-t border-slate-800 grid grid-cols-2 gap-2">
+            <button onclick="injectDendriteCrack()" class="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-200 transition flex items-center justify-center gap-1.5 shadow-sm">
+              <i data-lucide="zap" class="w-3.5 h-3.5 text-rose-400"></i>
+              Inject Micro-Crack
+            </button>
+            <button onclick="resetTripBreaker()" class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition flex items-center justify-center gap-1.5">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-cyan-400"></i>
+              Reset Isolator
+            </button>
+          </div>
+
+          <!-- Autonomous Interlock State Box -->
+          <div class="p-3 rounded-xl bg-slate-950/90 border border-slate-800/80 text-xs">
+            <div class="flex items-center justify-between font-mono mb-1">
+              <span class="text-slate-400">AUTONOMOUS INTERLOCK:</span>
+              <span id="interlockStatus" class="text-emerald-400 font-bold">ENGAGED (ACTIVE)</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              Upon $(a > a_{\text{crit}} \land \frac{dR}{dt} < -k)$, high-voltage solid-state switches cut charging in $t < 5\,\mu\text{s}$, diverting current to thermal dump bus before lithium bridges cathode.
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Telemetry Stream 1: Real-time Acoustic Emission Amplitude (4 Cols) -->
+        <div class="lg:col-span-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="waves" class="w-4 h-4 text-cyan-400"></i>
+              <h3 class="text-xs font-bold text-white uppercase font-mono">Ultrasonic AE Spectrum Time-Series</h3>
+            </div>
+            <span class="text-[10px] font-mono text-cyan-400">5.0 MHz RING SENSOR</span>
+          </div>
+          <div class="relative w-full h-[220px]">
+            <canvas id="chartAcousticTime"></canvas>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-2 font-mono flex justify-between">
+            <span>Baseline Noise: &lt; 0.15 m/s²</span>
+            <span class="text-cyan-400">Sample Rate: 20 MSPS</span>
+          </div>
+        </div>
+
+        <!-- Telemetry Stream 2: Dynamic In-Situ Resistance & Derivative (4 Cols) -->
+        <div class="lg:col-span-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
+              <h3 class="text-xs font-bold text-white uppercase font-mono">High-Freq EIS Bulk Impedance</h3>
+            </div>
+            <span class="text-[10px] font-mono text-emerald-400">100 kHz PERTURBATION</span>
+          </div>
+          <div class="relative w-full h-[220px]">
+            <canvas id="chartResistanceTime"></canvas>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-2 font-mono flex justify-between">
+            <span>Nominal $R$: 145–160 Ω·cm²</span>
+            <span class="text-amber-400">Short Threshold: 50 Ω·cm²</span>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: CORE PHYSICS & MATHEMATICAL MODEL                                 -->
+    <!-- ========================================================================= -->
+    <section id="viewPhysics" class="hidden space-y-6">
+      
+      <div class="bg-gradient-to-r from-cyan-950/40 via-slate-900/50 to-indigo-950/40 border border-cyan-500/20 p-6 rounded-2xl">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="atom" class="w-6 h-6 text-cyan-400"></i>
+          Micro-Mechanics of Lithium Electro-Chemo-Mechanical Dendrite Percolation
+        </h2>
+        <p class="text-sm text-slate-300 mt-1 max-w-4xl">
+          Garnet-type solid electrolytes ($\text{Li}_7\text{La}_3\text{Zr}_2\text{O}_{12}$, LLZO) boast superior ionic conductivity ($\sim 1\,\text{mS/cm}$) and wide electrochemical stability windows ($0\text{--}6\,\text{V}$). However, contrary to classical Monroe-Newman theory, rigid ceramics do not mechanically suppress dendrites: spatial current heterogeneity drives intergranular lithium metal wedge growth, emitting characteristic high-frequency acoustic waves prior to electrical shorting.
+        </p>
+      </div>
+
+      <!-- 4 Technical Breakdown Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Card 1: Griffith Grain Boundary Fracture & Acoustic Emission -->
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-cyan-400 uppercase font-semibold">Section 01 // Fracture Mechanics</span>
+              <i data-lucide="shrink" class="w-5 h-5 text-cyan-400"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mt-1">Grain-Boundary Overpotential & Wedge Crack Extension</h3>
+            <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+              Lithium deposition inside grain boundary defect pores produces extreme local hydrostatic pressure $P_{\text{hyd}}$. When the local stress intensity factor $K_I$ matches or exceeds the critical ceramic fracture toughness $K_{Ic}$ of polycrystalline LLZO ($\sim 0.9\text{--}1.2\,\text{MPa}\cdot\text{m}^{1/2}$), Griffith micro-cracking propagates instantaneously:
+            </p>
+            <div class="formula-box">
+              $$K_I = 2 P_{\text{hyd}} \sqrt{\frac{c}{\pi}} + \sigma_{\text{applied}} \ge K_{Ic} = \sqrt{2 E \gamma_{\text{gb}}}$$
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+              Here $c$ is flaw radius, $E$ is Young's modulus ($\sim 150\,\text{GPa}$), and $\gamma_{\text{gb}}$ is grain-boundary surface energy. The elastic strain energy release $\Delta U_e$ is channeled directly into transient acoustic wave acceleration $a(t)$:
+            </p>
+            <div class="formula-box">
+              $$a(t) = \frac{1}{\rho v_s} \frac{\partial^2}{\partial t^2} \left[ \int_{\Omega} \sigma_{ij}(x,t) d\Omega \right] \propto \frac{\Delta U_e}{\tau_{\text{rise}}}$$
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-cyan-300/80 bg-slate-950 p-2.5 rounded-lg border border-slate-800 mt-3">
+            Key Signature: 0.8–5.2 MHz shear/longitudinal wave emission with sub-microsecond acoustic rise times.
+          </div>
+        </div>
+
+        <!-- Card 2: Butler-Volmer & Creep Electrodeposition -->
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-indigo-400 uppercase font-semibold">Section 02 // Electrochemical Kinetics</span>
+              <i data-lucide="zap" class="w-5 h-5 text-indigo-400"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mt-1">Electro-Chemo-Mechanical Butler-Volmer Kinetics</h3>
+            <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+              At the tip of a propagating lithium filament, the overpotential $\eta$ is amplified by local electrical field convergence and stress-dependent electrochemical potential modification:
+            </p>
+            <div class="formula-box">
+              $$J_{\text{tip}} = J_0 \left[ \exp\left( \frac{\alpha F (\eta - \Omega \Delta \sigma)}{RT} \right) - \exp\left( -\frac{(1-\alpha) F (\eta - \Omega \Delta \sigma)}{RT} \right) \right]$$
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+              $\Omega$ represents the molar volume of lithium metal ($1.3 \times 10^{-5}\,\text{m}^3/\text{mol}$). As the conductive metallic filament breaches the separator, the effective electrolyte thickness $L_{\text{eff}} = L_0 - z_{\text{dendrite}}(t)$ collapses, inducing a nonlinear resistance drop:
+            </p>
+            <div class="formula-box">
+              $$R(t) = R_{\text{bulk}} \left( 1 - \frac{z_{\text{dendrite}}(t)}{L_0} \right) + R_{\text{contact}} + \sum \Delta R_{\text{gb}}$$
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-indigo-300/80 bg-slate-950 p-2.5 rounded-lg border border-slate-800 mt-3">
+            Coupling: $R(t)$ declines smoothly while $a(t)$ exhibits stochastic, discrete bursts coincident with grain facet splits.
+          </div>
+        </div>
+
+        <!-- Card 3: Diagnostic State Observer & Inversion Algorithm -->
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-emerald-400 uppercase font-semibold">Section 03 // State Estimation Algorithm</span>
+              <i data-lucide="binary" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mt-1">High-Speed Dual-Kalman Filter (EKF-Observer)</h3>
+            <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+              Standard battery management systems (BMS) cannot detect micro-dendrites because terminal voltage variations are buried in background polarization noise. The SolidElectrolyte algorithm employs a dual-state extended observer:
+            </p>
+            <div class="formula-box">
+              $$\hat{\mathbf{x}}_{k} = \mathbf{f}(\hat{\mathbf{x}}_{k-1}, u_{k-1}) + \mathbf{K}_k \left[ \mathbf{y}_k - \mathbf{h}(\hat{\mathbf{x}}_k) \right], \quad \mathbf{y} = \begin{bmatrix} a_{\text{RMS}} \\ R_{\text{bulk}} \end{bmatrix}$$
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+              The crack damage parameter $D \in [0, 1]$ is estimated through cross-correlation metric $\chi_{\text{dendrite}}$:
+            </p>
+            <div class="formula-box">
+              $$\chi_{\text{dendrite}} = \int_{t-\tau}^{t} \left( \frac{a(\tau)}{\sigma_a} \right) \cdot \left| \frac{1}{R(\tau)} \frac{dR(\tau)}{d\tau} \right| d\tau \ge \Theta_{\text{critical}}$$
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-emerald-300/80 bg-slate-950 p-2.5 rounded-lg border border-slate-800 mt-3">
+            Safety Intervention: Autonomous cutoff triggered if $\chi_{\text{dendrite}} > 0.85$, $350\,\text{ms}$ before electrical dead-short.
+          </div>
+        </div>
+
+        <!-- Card 4: Sensor Hardware & Lunar Transducer Packaging -->
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-amber-400 uppercase font-semibold">Section 04 // Transducer Instrumentation</span>
+              <i data-lucide="circuit-board" class="w-5 h-5 text-amber-400"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mt-1">PZT Ring Sensor & Cryogenic Silicon Integration</h3>
+            <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+              For lunar operational survival ($-180^\circ\text{C}$ to $+120^\circ\text{C}$), standard commercial piezo transducers fail due to Curie point drift and epoxy embrittlement. The system implements thin-film Gallium Orthophosphate ($\text{GaPO}_4$) and lead zirconate titanate (PZ27) arrays sputtering-bonded directly to the ceramic electrolyte perimeter:
+            </p>
+            <div class="formula-box">
+              $$V_{\text{out}}(t) = g_{33} \cdot \sigma_z(t) \cdot h_{\text{sensor}} = \frac{d_{33}}{\varepsilon_{33}^T} \cdot \left[ \rho v_p \int a(t) dt \right] \cdot h$$
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+              Combined with multi-frequency lock-in AC excitation ($10\,\text{kHz}\text{--}500\,\text{kHz}$) through current collector leads, bulk resistance $R$ and acoustic acceleration $a$ are monitored concurrently on a single ASIC front-end.
+            </p>
+          </div>
+          <div class="text-[11px] font-mono text-amber-300/80 bg-slate-950 p-2.5 rounded-lg border border-slate-800 mt-3">
+            Mass Impact: Under 12 grams per 1 kWh battery block; parasitic power consumption &lt; 85 mW.
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: NASA SBIR/STTR PROPOSAL & HARDWARE TRANSITION                     -->
+    <!-- ========================================================================= -->
+    <section id="viewProposal" class="hidden space-y-6">
+      
+      <!-- Proposal Header Card -->
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 p-6 rounded-2xl relative overflow-hidden">
+        <div class="absolute right-0 top-0 w-96 h-full bg-cyan-500/5 blur-3xl pointer-events-none"></div>
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-indigo-300 text-xs font-mono mb-2">
+              <i data-lucide="award" class="w-3.5 h-3.5"></i>
+              NASA SBIR/STTR SOLICITATION 2026-I // TOPIC TX-03.02
+            </div>
+            <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              Acoustic-Impedance Micro-Dendrite Scanner for Lunar Solid-State Batteries
+            </h2>
+            <p class="text-sm text-slate-300 mt-1 max-w-3xl">
+              Preventing catastrophic thermal runaway in Artemis Lunar Terrain Vehicles (LTV), Pressurized Rovers, and Kilopower night energy storage via sub-microsecond non-destructive acoustic crack sensing in dense garnet electrolytes.
+            </p>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-slate-400 font-mono">PHASE I FUNDING TOTAL</div>
+            <div class="text-2xl font-bold font-mono text-cyan-400">$225,000</div>
+            <div class="text-xs text-slate-500 font-mono">6-Month Performance Period</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Partner Allocation & Strategic Value -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
+          <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
+            <span>LEAD SMALL BUSINESS</span>
+            <span class="text-cyan-400">70.0% ($157,500)</span>
+          </div>
+          <h3 class="text-base font-bold text-white">RFWaveCode Propulsion & Diagnostics</h3>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            Lead software architecture, high-speed dual-Kalman observer ASIC integration, edge neural clustering of $(a, R)$ phase signatures, and autonomous milli-second contactor trip hardware.
+          </p>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl border-l-4 border-l-indigo-500">
+          <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
+            <span>RI RESEARCH PARTNER (STTR)</span>
+            <span class="text-indigo-400 font-bold">30.0% ($67,500)</span>
+          </div>
+          <h3 class="text-base font-bold text-white">University of Central Florida (UCF)</h3>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            UCF CATER / Advanced Materials Lab. Leading LLZO ceramic pellet sintering, cryogenic ultrasonic sensor calibration ($-180^\circ\text{C}$), and high-resolution Operando X-ray synchrotron micro-tomography validation.
+          </p>
+        </div>
+
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl">
+          <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-2">
+            <span>NASA STAKEHOLDER ALIGNMENT</span>
+            <span class="text-emerald-400">ARTEMIS MISSIONS</span>
+          </div>
+          <h3 class="text-base font-bold text-white">Glenn (GRC) & Marshall (MSFC)</h3>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            Aligned with NASA GRC Electrochemical Systems Branch for long-duration 354-hour Lunar Night power survivability where cell heating is severely restricted and dendrite shorts represent mission-loss events.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- 6-Month Work Breakdown Structure (WBS) -->
+      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 mb-4">
+          <i data-lucide="calendar" class="w-4 h-4 text-cyan-400"></i>
+          Phase I Technical Milestone RoadMap (Months 1 to 6)
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
+            <div class="text-xs font-mono text-cyan-400 font-bold mb-1">MILESTONE 1 (M1–M2)</div>
+            <div class="text-sm font-semibold text-white">Acoustic Signature Profiling</div>
+            <p class="text-xs text-slate-400 mt-2">
+              UCF CATER synthesis of $150\,\mu\text{m}$ dense LLZO pellets. Profiling acoustic wave attenuation vs. temperature (120 K to 340 K) under critical current densities ($J_c$).
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
+            <div class="text-xs font-mono text-indigo-400 font-bold mb-1">MILESTONE 2 (M3–M4)</div>
+            <div class="text-sm font-semibold text-white">$(a, R)$ Observer Inversion</div>
+            <p class="text-xs text-slate-400 mt-2">
+              Implementation of 20 MSPS acoustic event extraction and real-time cross-correlation with 100 kHz EIS impedance drops on low-power FPGA edge demonstrator.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
+            <div class="text-xs font-mono text-emerald-400 font-bold mb-1">MILESTONE 3 (M5)</div>
+            <div class="text-sm font-semibold text-white">Autonomous Fast-Trip Interlock</div>
+            <p class="text-xs text-slate-400 mt-2">
+              Benchtop testing of autonomous solid-state disconnection within $4.5\,\mu\text{s}$ of crack initiation. Demonstrating 100% short-circuit prevention across 50 deliberate overload cycles.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
+            <div class="text-xs font-mono text-amber-400 font-bold mb-1">MILESTONE 4 (M6)</div>
+            <div class="text-sm font-semibold text-white">Phase II Transition Specs</div>
+            <p class="text-xs text-slate-400 mt-2">
+              Packaging complete engineering drawings for a 1.2 kWh multi-cell pouch battery module instrumented with custom ASIC sensor dies for NASA vacuum-chamber testing.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase II Transition Plan -->
+      <div class="bg-slate-900/30 border border-slate-800/80 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div>
+          <h4 class="text-base font-bold text-white">Phase II Prototyping Pathway ($850,000 to $1,250,000)</h4>
+          <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+            Phase II will deploy integrated sensor suites into pilot-line pouch solid-state cells with partner solid-state battery gigafactories. Environmental qualification tests will be conducted inside UCF thermal-vacuum chambers replicating lunar regolith pressure cycles and Artemis surface radiation profiles.
+          </p>
+        </div>
+        <button onclick="switchTab('arr')" class="whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition flex items-center gap-2 shadow-lg shadow-cyan-600/20">
+          <span>View Commercial ARR Scalability</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: COMMERCIAL & NATIONWIDE ARR BREAKDOWN                             -->
+    <!-- ========================================================================= -->
+    <section id="viewARR" class="hidden space-y-6">
+      
+      <!-- Executive Summary Card -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 p-6 rounded-2xl">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-mono text-cyan-400 font-semibold uppercase tracking-wider mb-1">Civil & Commercial Dual-Use Market Vector</div>
+            <h2 class="text-2xl font-bold text-white">Solid-State Battery Safety & Runtime Diagnostics</h2>
+            <p class="text-xs text-slate-300 mt-1 max-w-3xl">
+              SolidElectrolyte unlocks the multi-billion dollar commercial transition from flammable liquid electrolytes to high-energy-density solid-state batteries by guaranteeing zero-catastrophic-short runtime safety for mission-critical civilian platforms.
+            </p>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-slate-400 font-mono uppercase">Target Mature Software ARR</div>
+            <div class="text-3xl font-extrabold font-mono text-cyan-400">$218.4M</div>
+            <div class="text-xs text-slate-500 font-mono">10.5x Enterprise Valuation: ~$2.29B</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commercial Verticals Table -->
+      <div class="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="p-4 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+            <i data-lucide="table" class="w-4 h-4 text-cyan-400"></i>
+            Commercial ARR Distribution Across 6 High-Reliability Civil Verticals
+          </h3>
+          <span class="text-xs font-mono text-slate-400">SaaS / Per-Pack Annual Firmware License</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950/40 text-slate-400 uppercase font-mono border-b border-slate-800 text-[11px]">
+              <tr>
+                <th class="py-3 px-4">Market Vertical</th>
+                <th class="py-3 px-4">Target Application</th>
+                <th class="py-3 px-4">Unit Pricing Metric</th>
+                <th class="py-3 px-4">Nationwide Asset Base</th>
+                <th class="py-3 px-4 text-right">Mature ARR ($M)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60 font-mono text-slate-300">
+              
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-3.5 px-4 font-sans font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="plane" class="w-4 h-4 text-cyan-400"></i>
+                  Commercial eVTOL & Cargo Aviation
+                </td>
+                <td class="py-3.5 px-4 font-sans text-slate-300">Regional electric flight (FAA Part 23/25)</td>
+                <td class="py-3.5 px-4">$1,400 / aircraft pack / yr</td>
+                <td class="py-3.5 px-4">32,000 active aircraft</td>
+                <td class="py-3.5 px-4 text-right font-bold text-cyan-400">$44.8M</td>
+              </tr>
+
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-3.5 px-4 font-sans font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="zap" class="w-4 h-4 text-emerald-400"></i>
+                  Utility-Scale Energy Storage (BESS)
+                </td>
+                <td class="py-3.5 px-4 font-sans text-slate-300">Substation 4-hour SSB Peaker plants</td>
+                <td class="py-3.5 px-4">$85 / MWh capacity / yr</td>
+                <td class="py-3.5 px-4">720,000 MWh deployed</td>
+                <td class="py-3.5 px-4 text-right font-bold text-emerald-400">$61.2M</td>
+              </tr>
+
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-3.5 px-4 font-sans font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="truck" class="w-4 h-4 text-amber-400"></i>
+                  Heavy Autonomous Mining & Arctic
+                </td>
+                <td class="py-3.5 px-4 font-sans text-slate-300">Sub-zero open-pit haulage & excavators</td>
+                <td class="py-3.5 px-4">$620 / vehicle / yr</td>
+                <td class="py-3.5 px-4">58,000 haul trucks</td>
+                <td class="py-3.5 px-4 text-right font-bold text-amber-400">$36.0M</td>
+              </tr>
+
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-3.5 px-4 font-sans font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="rocket" class="w-4 h-4 text-indigo-400"></i>
+                  Civil Space & Commercial LEO/Lunar
+                </td>
+                <td class="py-3.5 px-4 font-sans text-slate-300">Artemis landers, commercial satellite constellations</td>
+                <td class="py-3.5 px-4">$3,200 / flight unit / yr</td>
+                <td class="py-3.5 px-4">4,500 active payloads</td>
+                <td class="py-3.5 px-4 text-right font-bold text-indigo-400">$14.4M</td>
+              </tr>
+
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-3.5 px-4 font-sans font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="anchor" class="w-4 h-4 text-blue-400"></i>
+                  Deep-Sea Oceanographic UUVs
+                </td>
+                <td class="py-3.5 px-4 font-sans text-slate-300">Sub-surface autonomous mapping & energy hubs</td>
+                <td class="py-3.5 px-4">$950 / sub-pack / yr</td>
+                <td class="py-3.5 px-4">12,000 vehicles</td>
+                <td class="py-3.5 px-4 text-right font-bold text-blue-400">$11.4M</td>
+              </tr>
+
+              <tr class="hover:bg-slate-800/30 transition">
+                <td class="py-3.5 px-4 font-sans font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="car" class="w-4 h-4 text-rose-400"></i>
+                  Premium Automotive 10-Min Fast Charge
+                </td>
+                <td class="py-3.5 px-4 font-sans text-slate-300">Next-gen hyper-cars & premium fleet EVs</td>
+                <td class="py-3.5 px-4">$45 / vehicle / yr</td>
+                <td class="py-3.5 px-4">1,125,000 premium vehicles</td>
+                <td class="py-3.5 px-4 text-right font-bold text-rose-400">$50.6M</td>
+              </tr>
+
+            </tbody>
+            <tfoot class="bg-slate-950 font-mono font-bold text-white border-t-2 border-slate-700">
+              <tr>
+                <td colspan="4" class="py-3 px-4 text-right uppercase tracking-wider text-slate-400">Total Mature Annual Recurring Revenue:</td>
+                <td class="py-3 px-4 text-right text-base text-cyan-400">$218.4M / yr</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Industry Deep-Dive Cards (Physics in 1 Sentence + Why Incumbents Missed It) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        
+        <!-- Deep Dive 1: eVTOL -->
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold mb-2">
+              <i data-lucide="plane" class="w-4 h-4"></i>
+              COMMERCIAL eVTOL AVIATION
+            </div>
+            <h4 class="text-sm font-bold text-white">Emergency Hover Reserve Assurance</h4>
+            <div class="mt-2 text-xs text-slate-300 space-y-2">
+              <p><strong class="text-slate-100">Physics in 1 Sentence:</strong> High C-rate takeoff/landing spikes amplify grain boundary stress concentrations via Butler-Volmer overpotentials, generating micro-cracks before thermal runaway occurs.</p>
+              <p><strong class="text-cyan-300">Why Others Missed This:</strong> Legacy aerospace relies on passive thermocouple jackets and cell-can voltage checks that register zero anomaly until the dendrite has already burned through the separator into dead short.</p>
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-slate-500 mt-3 pt-2 border-t border-slate-800/80">Market: $44.8M ARR</div>
+        </div>
+
+        <!-- Deep Dive 2: Grid BESS -->
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-emerald-400 text-xs font-mono font-bold mb-2">
+              <i data-lucide="zap" class="w-4 h-4"></i>
+              UTILITY GRID STORAGE (BESS)
+            </div>
+            <h4 class="text-sm font-bold text-white">Catastrophic Fire Insurance De-Risking</h4>
+            <div class="mt-2 text-xs text-slate-300 space-y-2">
+              <p><strong class="text-slate-100">Physics in 1 Sentence:</strong> Multi-megawatt solid-state battery banks undergo progressive separator micro-fracturing under daily deep cycling, emitting ultrasonic bursts at predictable grain facet crack rates.</p>
+              <p><strong class="text-emerald-300">Why Others Missed This:</strong> Incumbents attempt to prevent container fires using sprinkler systems and inert gas flooding after ignition, whereas acoustic sensing prevents ignition at the microscopic defect stage.</p>
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-slate-500 mt-3 pt-2 border-t border-slate-800/80">Market: $61.2M ARR</div>
+        </div>
+
+        <!-- Deep Dive 3: Arctic & Mining -->
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-amber-400 text-xs font-mono font-bold mb-2">
+              <i data-lucide="truck" class="w-4 h-4"></i>
+              HEAVY AUTONOMOUS MINING & ARCTIC
+            </div>
+            <h4 class="text-sm font-bold text-white">Sub-Zero Lithium Stripping Protection</h4>
+            <div class="mt-2 text-xs text-slate-300 space-y-2">
+              <p><strong class="text-slate-100">Physics in 1 Sentence:</strong> At cold temperatures ($-30^\circ\text{C}$ to $-50^\circ\text{C}$), ionic diffusivity crashes by 3 orders of magnitude, causing lithium plating to form brittle dendritic needles at low currents.</p>
+              <p><strong class="text-amber-300">Why Others Missed This:</strong> Mining operators waste 30% of battery pack power running resistance heaters to avoid cold-temperature charging instead of operating safely under real-time acoustic dendrite monitoring.</p>
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-slate-500 mt-3 pt-2 border-t border-slate-800/80">Market: $36.0M ARR</div>
+        </div>
+
+        <!-- Deep Dive 4: Civil Space -->
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-indigo-400 text-xs font-mono font-bold mb-2">
+              <i data-lucide="rocket" class="w-4 h-4"></i>
+              CIVIL SPACE & ARTEMIS INFRASTRUCTURE
+            </div>
+            <h4 class="text-sm font-bold text-white">14-Day Lunar Night Energy Storage</h4>
+            <div class="mt-2 text-xs text-slate-300 space-y-2">
+              <p><strong class="text-slate-100">Physics in 1 Sentence:</strong> In lunar vacuum, cell heat cannot dissipate convectively; a single dendrite short ignites the entire unpressurized battery module through radiative runaway.</p>
+              <p><strong class="text-indigo-300">Why Others Missed This:</strong> Mission designers traditionally over-engineer battery mass by 300% to operate in ultra-shallow 20% DOD regimes, destroying rover payload capacity.</p>
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-slate-500 mt-3 pt-2 border-t border-slate-800/80">Market: $14.4M ARR</div>
+        </div>
+
+        <!-- Deep Dive 5: Subsea UUVs -->
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-blue-400 text-xs font-mono font-bold mb-2">
+              <i data-lucide="anchor" class="w-4 h-4"></i>
+              DEEP-SEA OCEANOGRAPHIC UUVs
+            </div>
+            <h4 class="text-sm font-bold text-white">Isobaric Deep-Trench Pressure Balancing</h4>
+            <div class="mt-2 text-xs text-slate-300 space-y-2">
+              <p><strong class="text-slate-100">Physics in 1 Sentence:</strong> Extreme external hydrostatic ocean pressure ($60\,\text{MPa}$) shifts separator fracture mechanics, causing accelerated shear-mode crack propagation along ceramic grain facets.</p>
+              <p><strong class="text-blue-300">Why Others Missed This:</strong> Legacy subsea vehicles use bulky titanium pressure vessels that triple vehicle weight, whereas acoustic-monitored solid-state cells survive in pressure-tolerant oil-flooded bays.</p>
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-slate-500 mt-3 pt-2 border-t border-slate-800/80">Market: $11.4M ARR</div>
+        </div>
+
+        <!-- Deep Dive 6: Automotive 10-Min Fast Charge -->
+        <div class="bg-slate-900/40 border border-slate-800 p-5 rounded-xl flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-rose-400 text-xs font-mono font-bold mb-2">
+              <i data-lucide="car" class="w-4 h-4"></i>
+              PREMIUM AUTOMOTIVE 10-MIN FAST CHARGE
+            </div>
+            <h4 class="text-sm font-bold text-white">Dynamic Critical Current (CCD) Adaptive Throttle</h4>
+            <div class="mt-2 text-xs text-slate-300 space-y-2">
+              <p><strong class="text-slate-100">Physics in 1 Sentence:</strong> Fast charging is limited by dynamic critical current density; acoustic emissions provide instantaneous feedback, allowing current throttling exactly at the micro-fracture threshold.</p>
+              <p><strong class="text-rose-300">Why Others Missed This:</strong> Standard EV chargers use rigid pre-programmed charge tables that are either conservatively slow or cause sudden battery degradation and catastrophic fires.</p>
+            </div>
+          </div>
+          <div class="text-[11px] font-mono text-slate-500 mt-3 pt-2 border-t border-slate-800/80">Market: $50.6M ARR</div>
+        </div>
+
+      </div>
+
+      <!-- Corporate Transition & Direct Contact Footer -->
+      <div class="p-6 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950/40 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h4 class="text-sm font-bold text-white uppercase tracking-wider font-mono">Commercial Licensing & Strategic Engagement</h4>
+          <p class="text-xs text-slate-400 mt-1">
+            Technology transition packages, OEM firmware licenses, and UCF STTR test reports available upon request.
+          </p>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="mailto:support@rfwavecode.com" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-cyan-600/25">
+            <i data-lucide="mail" class="w-4 h-4"></i>
+            <span>support@rfwavecode.com</span>
+          </a>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Global Application Logic & Physical Simulator -->
+  <script>
+    // Tab Switching Infrastructure
+    const tabMapping = {
+      'sim': { viewId: 'viewSim', btnId: 'tabBtnSim' },
+      'physics': { viewId: 'viewPhysics', btnId: 'tabBtnPhysics' },
+      'proposal': { viewId: 'viewProposal', btnId: 'tabBtnProposal' },
+      'arr': { viewId: 'viewARR', btnId: 'tabBtnARR' }
+    };
+
+    function switchTab(targetTab) {
+      Object.keys(tabMapping).forEach(tab => {
+        const view = document.getElementById(tabMapping[tab].viewId);
+        const btn = document.getElementById(tabMapping[tab].btnId);
+        if (tab === targetTab) {
+          view.classList.remove('hidden');
+          btn.classList.add('bg-cyan-600', 'text-white', 'shadow-sm', 'shadow-cyan-500/20');
+          btn.classList.remove('text-slate-400');
+        } else {
+          view.classList.add('hidden');
+          btn.classList.remove('bg-cyan-600', 'text-white', 'shadow-sm', 'shadow-cyan-500/20');
+          btn.classList.add('text-slate-400');
+        }
+      });
+
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise();
+      }
+
+      if (targetTab === 'sim') {
+        setTimeout(() => {
+          resizeCanvas();
+        }, 30);
+      }
+    }
+
+    // =========================================================================
+    // PHYSICAL SIMULATION ENGINE & TELEMETRY
+    // =========================================================================
+    
+    // Physical System State Variables
+    let currentDensity = 2.5; // mA/cm^2
+    let temperature = 253;    // Kelvin
+    let stackPressure = 5.0;  // MPa
+    
+    let acousticEmission = 0.12; // m/s^2 (RMS)
+    let bulkResistance = 148.2;  // Ohm*cm^2
+    let dendriteDepth = 4.1;     // micrometers (out of 45 um)
+    let breakerTripped = false;
+    let faultInjected = false;
+    let dendriteFilaments = [];
+    let acousticWaves = [];
+    let simTime = 0;
+
+    // Canvas references
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Initialize grain structure and filament seeds
+    function initMicrostructure() {
+      dendriteFilaments = [
+        { x: 35, y: 160, length: 15, branches: [{ x: 42, y: 150, length: 8 }] },
+        { x: 120, y: 160, length: 22, branches: [{ x: 125, y: 172, length: 12 }] },
+        { x: 210, y: 160, length: 9, branches: [] },
+        { x: 280, y: 160, length: 34, branches: [{ x: 295, y: 145, length: 14 }, { x: 305, y: 180, length: 10 }] },
+        { x: 360, y: 160, length: 18, branches: [] },
+        { x: 450, y: 160, length: 12, branches: [] },
+        { x: 530, y: 160, length: 27, branches: [{ x: 540, y: 170, length: 9 }] }
+      ];
+    }
+    initMicrostructure();
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = rect.width || 600;
+      const h = rect.height || 320;
+      
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.resetTransform ? ctx.resetTransform() : ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 50);
+
+    // Controls Update Listener
+    function updateControls() {
+      currentDensity = parseFloat(document.getElementById('sliderCurrent').value);
+      temperature = parseFloat(document.getElementById('sliderTemp').value);
+      stackPressure = parseFloat(document.getElementById('sliderPressure').value);
+
+      document.getElementById('labelCurrent').textContent = `${currentDensity.toFixed(1)} mA/cm²`;
+      document.getElementById('labelTemp').textContent = `${temperature.toFixed(0)} K (${(temperature - 273.15).toFixed(0)}°C)`;
+      document.getElementById('labelPressure').textContent = `${stackPressure.toFixed(1)} MPa`;
+    }
+
+    function injectDendriteCrack() {
+      faultInjected = true;
+      // Spawn rapid crack extension on filament #4 (active filament)
+      dendriteFilaments[3].length = 38.0;
+      acousticWaves.push({
+        x: dendriteFilaments[3].x,
+        y: 160 + dendriteFilaments[3].length * 2.2,
+        radius: 4,
+        maxRadius: 180,
+        intensity: 1.0
+      });
+    }
+
+    function resetTripBreaker() {
+      breakerTripped = false;
+      faultInjected = false;
+      dendriteFilaments[3].length = 14;
+      bulkResistance = 148.5;
+      acousticEmission = 0.12;
+      document.getElementById('breakerBadge').className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+      document.getElementById('breakerBadge').textContent = 'ISOLATOR: CLOSED (CHARGING)';
+      document.getElementById('punctureAlert').classList.add('hidden');
+      document.getElementById('topStatusText').className = 'text-xs font-semibold text-emerald-400 flex items-center justify-end gap-1.5';
+      document.getElementById('topStatusText').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> HOMOGENEOUS INTERCALATION';
+      document.getElementById('overlayCorrelation').textContent = 'NORMAL';
+      document.getElementById('overlayCorrelation').className = 'text-emerald-400 font-bold';
+    }
+
+    // Simulation Step (Physics loop at 25 Hz)
+    function stepPhysics() {
+      simTime += 0.04;
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width || 600;
+      const h = rect.height || 320;
+
+      // Effective charging power (zero if tripped)
+      const activeCurrent = breakerTripped ? 0 : currentDensity;
+
+      // Base physical equations
+      // Temperature overpotential multiplier (Arrhenius)
+      const arrhenius = Math.exp(1200 * (1/298 - 1/temperature));
+      
+      // Critical crack propensity factor
+      const stressRatio = (stackPressure > 9.0) ? (1 + (stackPressure - 9.0)*0.2) : 1.0;
+      const overpotentialSpike = (activeCurrent / 6.0) * arrhenius * stressRatio;
+
+      if (!breakerTripped) {
+        if (faultInjected) {
+          // Rapid dendrite advance
+          dendriteDepth += 0.45 * overpotentialSpike;
+          acousticEmission = Math.min(3.2, 0.4 + Math.random()*2.4 * overpotentialSpike);
+          bulkResistance = Math.max(38.0, bulkResistance - 2.8 * overpotentialSpike);
+        } else {
+          // Normal micro-dynamics
+          const microBurst = Math.random() < 0.08 ? (Math.random() * 0.45 * overpotentialSpike) : 0;
+          acousticEmission = Math.max(0.08, 0.10 + (activeCurrent * 0.04) + microBurst);
+          
+          if (activeCurrent > 5.5) {
+            dendriteDepth += 0.04 * (activeCurrent - 5.5);
+            bulkResistance = Math.max(85, bulkResistance - 0.05);
+          } else {
+            dendriteDepth = Math.max(3.0, dendriteDepth + 0.002);
+            bulkResistance = Math.min(155.0, bulkResistance + (148.0 - bulkResistance) * 0.01);
+          }
+        }
+
+        // Active filament length tracking
+        dendriteFilaments[3].length = Math.min(43, dendriteDepth * 0.95);
+
+        // Acoustic wave burst generation
+        if (acousticEmission > 0.45 && Math.random() < 0.35) {
+          acousticWaves.push({
+            x: dendriteFilaments[3].x + (Math.random()-0.5)*15,
+            y: 80 + dendriteFilaments[3].length * 2.8,
+            radius: 2,
+            maxRadius: 160 + acousticEmission * 30,
+            intensity: Math.min(1.0, acousticEmission / 2.0)
+          });
+        }
+
+        // AUTONOMOUS CLOSED-LOOP TRIP TRIGGER
+        // If acoustic emissions spike while resistance drops past threshold
+        if (acousticEmission > 1.80 || bulkResistance < 52.0 || dendriteDepth > 40.0) {
+          breakerTripped = true;
+          document.getElementById('breakerBadge').className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 animate-pulse';
+          document.getElementById('breakerBadge').textContent = 'ISOLATOR: TRIPPED (ISOLATED in 4.2ms)';
+          document.getElementById('punctureAlert').classList.remove('hidden');
+          document.getElementById('topStatusText').className = 'text-xs font-semibold text-rose-400 flex items-center justify-end gap-1.5';
+          document.getElementById('topStatusText').innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span> DENDRITIC BREACH PREVENTED';
+          document.getElementById('overlayCorrelation').textContent = 'ANOMALY DETECTED (CIRCUIT CUTOFF)';
+          document.getElementById('overlayCorrelation').className = 'text-rose-400 font-bold';
+        }
+      } else {
+        // Safe relaxation state after trip
+        acousticEmission = Math.max(0.08, acousticEmission * 0.92);
+        bulkResistance = Math.min(75.0, bulkResistance + 0.1);
+      }
+
+      // Update UI Telemetry Cards
+      document.getElementById('metricA').textContent = acousticEmission.toFixed(2);
+      document.getElementById('barMetricA').style.width = `${Math.min(100, (acousticEmission / 3.0) * 100)}%`;
+
+      document.getElementById('metricR').textContent = bulkResistance.toFixed(1);
+      document.getElementById('barMetricR').style.width = `${Math.min(100, (bulkResistance / 160.0) * 100)}%`;
+
+      document.getElementById('metricDepth').textContent = dendriteDepth.toFixed(1);
+      document.getElementById('barMetricDepth').style.width = `${Math.min(100, (dendriteDepth / 45.0) * 100)}%`;
+
+      const safetyMargin = Math.max(0, Math.min(100, ((45.0 - dendriteDepth) / 45.0) * 100));
+      document.getElementById('metricMargin').textContent = `${safetyMargin.toFixed(1)}%`;
+      document.getElementById('barMetricMargin').style.width = `${safetyMargin}%`;
+      if (safetyMargin < 20) {
+        document.getElementById('barMetricMargin').className = 'bg-rose-500 h-full transition-all duration-150';
+      } else if (safetyMargin < 55) {
+        document.getElementById('barMetricMargin').className = 'bg-amber-400 h-full transition-all duration-150';
+      } else {
+        document.getElementById('barMetricMargin').className = 'bg-emerald-400 h-full transition-all duration-150';
+      }
+
+      // ==========================================
+      // CANVAS RENDERING
+      // ==========================================
+      ctx.fillStyle = '#02050d';
+      ctx.fillRect(0, 0, w, h);
+
+      // Top: Lithium Metal Anode Layer (z = 0)
+      const anodeH = 45;
+      const gradAnode = ctx.createLinearGradient(0, 0, 0, anodeH);
+      gradAnode.addColorStop(0, '#334155');
+      gradAnode.addColorStop(1, '#64748b');
+      ctx.fillStyle = gradAnode;
+      ctx.fillRect(0, 0, w, anodeH);
+
+      // Label Anode
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.fillText('LI METAL ANODE (Li⁰ RESERVOIR) [z = 0 μm]', 12, 26);
+
+      // Bottom: Solid Cathode Composite (z = 45 um)
+      const cathodeY = h - 50;
+      const gradCathode = ctx.createLinearGradient(0, cathodeY, 0, h);
+      gradCathode.addColorStop(0, '#1e1b4b');
+      gradCathode.addColorStop(1, '#0f172a');
+      ctx.fillStyle = gradCathode;
+      ctx.fillRect(0, cathodeY, w, 50);
+
+      ctx.fillStyle = '#a5b4fc';
+      ctx.fillText('CATHODE COMPOSITE (NMC811 + LLZO) [z = 45 μm]', 12, cathodeY + 30);
+
+      // Middle: Polycrystalline LLZO Ceramic Separator with Grain Boundaries
+      const sepY = anodeH;
+      const sepH = cathodeY - anodeH;
+
+      // Grain boundary network background
+      ctx.strokeStyle = '#0f243a';
+      ctx.lineWidth = 1;
+      const grainStepX = 55;
+      const grainStepY = 38;
+      for (let gx = 0; gx < w; gx += grainStepX) {
+        ctx.beginPath();
+        ctx.moveTo(gx, sepY);
+        for (let gy = sepY; gy < cathodeY; gy += grainStepY) {
+          const jitterX = Math.sin(gx + gy + simTime) * 6;
+          ctx.lineTo(gx + jitterX, gy + grainStepY);
+        }
+        ctx.stroke();
+      }
+
+      // Draw Ultrasonic Ring Transducers on sides
+      ctx.fillStyle = '#0e7490';
+      ctx.fillRect(0, sepY, 14, sepH);
+      ctx.fillRect(w - 14, sepY, 14, sepH);
+      
+      ctx.save();
+      ctx.fillStyle = '#67e8f9';
+      ctx.font = '8px "JetBrains Mono", monospace';
+      ctx.translate(10, sepY + sepH/2);
+      ctx.rotate(-Math.PI/2);
+      ctx.fillText('PZT SENSOR 1', -30, 0);
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = '#67e8f9';
+      ctx.font = '8px "JetBrains Mono", monospace';
+      ctx.translate(w - 4, sepY + sepH/2);
+      ctx.rotate(-Math.PI/2);
+      ctx.fillText('PZT SENSOR 2', -30, 0);
+      ctx.restore();
+
+      // Render Acoustic Stress Waves propagating outward
+      for (let i = acousticWaves.length - 1; i >= 0; i--) {
+        const wave = acousticWaves[i];
+        wave.radius += 3.2;
+        wave.intensity *= 0.95;
+
+        ctx.strokeStyle = `rgba(6, 182, 212, ${wave.intensity * 0.75})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (wave.radius > wave.maxRadius || wave.intensity < 0.04) {
+          acousticWaves.splice(i, 1);
+        }
+      }
+
+      // Draw Propagating Lithium Metallic Dendrite Filaments
+      dendriteFilaments.forEach((fil, idx) => {
+        const startX = (fil.x / 600) * w;
+        const startY = sepY;
+        const filamentLen = (fil.length / 45) * sepH;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+
+        // Jagged crack path through LLZO grain facets
+        const segments = 8;
+        let cx = startX;
+        let cy = startY;
+        const segLen = filamentLen / segments;
+
+        ctx.strokeStyle = (idx === 3 && faultInjected) ? '#fb7185' : '#38bdf8';
+        ctx.lineWidth = (idx === 3) ? 2.8 : 1.6;
+        ctx.shadowColor = (idx === 3 && faultInjected) ? 'rgba(244,63,94,0.8)' : 'rgba(56,189,248,0.5)';
+        ctx.shadowBlur = (idx === 3) ? 12 : 6;
+
+        for (let s = 1; s <= segments; s++) {
+          const dev = Math.sin(s * 1.5 + idx + simTime * 2) * 4;
+          cx = startX + dev;
+          cy = startY + s * segLen;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0; // reset shadow
+
+        // Metallic dendrite growth head (bright nucleation point)
+        ctx.fillStyle = (idx === 3 && faultInjected) ? '#ffffff' : '#a5f3fc';
+        ctx.beginPath();
+        ctx.arc(cx, cy, (idx === 3) ? 3.5 : 2.0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw sub-branches
+        if (fil.branches) {
+          fil.branches.forEach(b => {
+            const bStartX = startX;
+            const bStartY = startY + (filamentLen * 0.5);
+            ctx.beginPath();
+            ctx.moveTo(bStartX, bStartY);
+            ctx.lineTo(bStartX + 12, bStartY + (b.length / 45) * sepH);
+            ctx.strokeStyle = '#0284c7';
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
+          });
+        }
+      });
+
+      // Electrical Field Streamlines
+      if (!breakerTripped) {
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        for (let fx = 30; fx < w - 30; fx += 40) {
+          ctx.beginPath();
+          ctx.moveTo(fx, sepY);
+          ctx.lineTo(fx, cathodeY);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+    }
+
+    // Interval execution for physical canvas
+    setInterval(stepPhysics, 40);
+
+    // =========================================================================
+    // CHART.JS TELEMETRY & PHASE-SPACE OBSERVER
+    // =========================================================================
+
+    // Phase Space Chart: Acoustic Emission (a) vs Resistance (R)
+    const ctxPhase = document.getElementById('phaseChart').getContext('2d');
+    
+    // Theoretical Nominal Operating Corridor
+    const nominalCurve = [];
+    for (let r = 50; r <= 160; r += 5) {
+      // baseline nominal vibration remains low (< 0.25) across resistance
+      nominalCurve.push({ x: 0.10 + Math.random()*0.08, y: r });
+    }
+
+    // Live trajectory buffer
+    const trajectoryPoints = [
+      { x: 0.12, y: 148.2 }
+    ];
+
+    const phaseChart = new Chart(ctxPhase, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Hazard / Catastrophic Short Zone',
+            data: [
+              { x: 1.80, y: 40 },
+              { x: 3.50, y: 40 },
+              { x: 3.50, y: 100 },
+              { x: 1.80, y: 100 }
+            ],
+            showLine: true,
+            fill: true,
+            backgroundColor: 'rgba(244, 63, 94, 0.15)',
+            borderColor: 'rgba(244, 63, 94, 0.8)',
+            borderDash: [5, 5],
+            pointRadius: 0
+          },
+          {
+            label: 'Nominal Operating Corridor',
+            data: [
+              { x: 0.05, y: 130 },
+              { x: 0.35, y: 130 },
+              { x: 0.35, y: 160 },
+              { x: 0.05, y: 160 }
+            ],
+            showLine: true,
+            fill: true,
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            borderColor: 'rgba(16, 185, 129, 0.6)',
+            pointRadius: 0
+          },
+          {
+            label: 'Live Battery State Trajectory',
+            data: trajectoryPoints,
+            showLine: true,
+            borderColor: '#06b6d4',
+            borderWidth: 2,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#06b6d4',
+            pointRadius: 3,
+            pointHoverRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            min: 0.0,
+            max: 3.2,
+            title: {
+              display: true,
+              text: 'Acoustic Emission Amplitude a (m/s² RMS)',
+              color: '#94a3b8',
+              font: { family: 'JetBrains Mono', size: 10 }
+            },
+            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 } }
+          },
+          y: {
+            min: 30,
+            max: 170,
+            title: {
+              display: true,
+              text: 'Bulk Resistance R (Ω·cm²)',
+              color: '#94a3b8',
+              font: { family: 'JetBrains Mono', size: 10 }
+            },
+            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 9 } }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#cbd5e1', boxWidth: 10, font: { size: 9, family: 'Inter' } }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `a: ${context.parsed.x.toFixed(2)} m/s², R: ${context.parsed.y.toFixed(1)} Ω·cm²`
+            }
+          }
+        }
+      }
+    });
+
+    // Time Series 1: Acoustic Emission vs Time
+    const ctxAcoustic = document.getElementById('chartAcousticTime').getContext('2d');
+    const timeLabels = Array.from({ length: 30 }, (_, i) => `-${(30 - i)*0.2}s`);
+    const acousticData = Array(30).fill(0.12);
+
+    const chartAcoustic = new Chart(ctxAcoustic, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [{
+          label: 'AE Acceleration (m/s²)',
+          data: acousticData,
+          borderColor: '#06b6d4',
+          backgroundColor: 'rgba(6, 182, 212, 0.1)',
+          fill: true,
+          borderWidth: 1.8,
+          pointRadius: 0,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: { display: false },
+          y: {
+            min: 0,
+            max: 3.0,
+            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 8 } }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // Time Series 2: Bulk Resistance vs Time
+    const ctxResistance = document.getElementById('chartResistanceTime').getContext('2d');
+    const resistanceData = Array(30).fill(148.2);
+
+    const chartResistance = new Chart(ctxResistance, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [{
+          label: 'Bulk Resistance (Ω·cm²)',
+          data: resistanceData,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          borderWidth: 1.8,
+          pointRadius: 0,
+          tension: 0.2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: { display: false },
+          y: {
+            min: 30,
+            max: 165,
+            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 8 } }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // Throttled Chart Updates (Every 160ms)
+    let tickCount = 0;
+    setInterval(() => {
+      tickCount++;
+
+      // Shift Time series data
+      acousticData.push(acousticEmission);
+      acousticData.shift();
+      chartAcoustic.update();
+
+      resistanceData.push(bulkResistance);
+      resistanceData.shift();
+      chartResistance.update();
+
+      // Update Phase Trajectory (keep last 24 points)
+      trajectoryPoints.push({ x: acousticEmission, y: bulkResistance });
+      if (trajectoryPoints.length > 24) {
+        trajectoryPoints.shift();
+      }
+      phaseChart.update();
+
+    }, 160);
+
+    // Initial lucide icon initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      updateControls();
+    });
+  </script>
+</body>
+</html>
